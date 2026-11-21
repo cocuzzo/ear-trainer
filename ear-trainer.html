@@ -1,0 +1,1409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#111112">
+<title>Ear Trainer · prototype v0.2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Michroma&family=Orbitron:wght@500;700&family=Audiowide&family=Syncopate:wght@400;700&family=Exo+2:wght@300;400;500&family=Oxanium:wght@300;400;500&family=Electrolize&family=JetBrains+Mono&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0e0e0f; --stage:#0b0b0c; --panel:transparent; --line:rgba(255,255,255,.12); --line2:rgba(255,255,255,.22);
+  --text:#e7e6e3; --muted:#8f8e8b; --brass:#d9a441; --copper:#c4622d; --r:2px;
+  --ui:"Exo 2",ui-sans-serif,system-ui,sans-serif;
+  --disp:"Michroma","Exo 2",ui-sans-serif,sans-serif; --dispw:400;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+[hidden]{display:none!important}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:300 16px/1.35 var(--ui);
+  overscroll-behavior:none;-webkit-user-select:none;user-select:none}
+button{font-weight:300}
+#app{height:100%;height:100dvh;display:flex;flex-direction:column;gap:10px;max-width:980px;margin:0 auto;
+  padding:calc(env(safe-area-inset-top) + 8px) 10px calc(env(safe-area-inset-bottom) + 10px)}
+.top{display:flex;align-items:center;gap:8px}
+.brand{font:var(--dispw) 12px var(--disp);letter-spacing:.12em;color:var(--brass);padding:0 6px 0 2px}
+.top .seg{flex:1}
+.icon{background:none;border:1px solid var(--line);color:var(--text);min-width:46px;height:46px;border-radius:var(--r);font:300 18px var(--ui);padding:0 12px;cursor:pointer}
+.icon:hover,.seg button:hover,#actions button:hover,#grid button:hover:not(:disabled){border-color:var(--line2)}
+/* segmented controls: hairline cells, active = brass underline */
+.seg{display:flex;border:1px solid var(--line);border-radius:var(--r)}
+.seg button{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;border:0;border-left:1px solid var(--line);background:none;color:var(--muted);
+  min-height:46px;padding:0 6px;border-radius:0;font:300 15px var(--ui);letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;cursor:pointer}
+.seg button:first-child{border-left:0}
+.seg.cap{position:relative}
+.seg.cap::before{content:attr(data-cap);position:absolute;top:-6px;left:8px;padding:0 5px;background:var(--bg);font:400 9px/1 var(--mono);letter-spacing:.18em;color:var(--muted);z-index:1}
+.top{margin-top:4px}
+/* HUD on the window */
+#hud{position:absolute;inset:0;pointer-events:none;z-index:2;font:400 10px/1.5 var(--mono);letter-spacing:.14em;color:rgba(231,230,227,.45)}
+#hud .tk{position:absolute;left:24px;right:24px;height:7px;
+  background:repeating-linear-gradient(90deg,rgba(255,255,255,.22) 0 1px,transparent 1px 10px),repeating-linear-gradient(90deg,rgba(255,255,255,.35) 0 1px,transparent 1px 50px);
+  background-size:100% 4px,100% 7px;background-repeat:no-repeat}
+#hud .tk.top{top:0;background-position:0 0,0 0}
+#hud .tk.bot{bottom:0;background-position:0 3px,0 0}
+#hud .tr{position:absolute;top:12px;right:14px;text-align:right}
+#hud .tr b{color:var(--brass);font-weight:400}
+#hud .meter{position:absolute;left:12px;bottom:40px;display:flex;flex-direction:column-reverse;gap:2px}
+#hud .meter i{display:block;width:12px;height:5px;background:rgba(255,255,255,.08)}
+#hud .meter i.on{background:rgba(231,230,227,.55)}
+#hud .meter i.on.hi{background:var(--brass)}
+#hud .meter i.on.pk{background:var(--copper)}
+#hud .mlab{position:absolute;left:10px;bottom:22px}
+#stage{box-shadow:inset 0 0 80px rgba(0,0,0,.85)}
+/* console data bar */
+#dbar{display:flex;gap:0;border:1px solid var(--line);font:400 11px/1 var(--mono);letter-spacing:.12em;color:var(--muted);text-transform:uppercase;overflow:hidden;white-space:nowrap}
+#dbar span{padding:8px 10px;border-left:1px solid var(--line);flex:0 0 auto}
+#dbar span:first-child{border-left:0}
+#dbar span.grow{flex:1;text-align:right}
+#dbar b{color:var(--text);font-weight:400}
+#dbar .dot{display:inline-block;width:7px;height:7px;margin-right:7px;background:var(--muted);vertical-align:-1px}
+#dbar .dot.live{background:var(--brass)}
+#dbar .dot.rec{background:#e0604c;animation:blink 1s steps(2) infinite}
+#dbar .dot.lock{background:rgb(120,190,140)}
+@keyframes blink{50%{opacity:.15}}
+@media (max-width:480px){#dbar span.opt{display:none}}
+@media (max-width:480px){.seg button{font-size:13px;letter-spacing:.02em;padding:0 4px}}
+.seg button.on{color:var(--text);background:rgba(217,164,65,.06);box-shadow:inset 0 -2px 0 var(--brass)}
+/* stage: square, hairline frame with corner brackets */
+#stage{position:relative;flex:1;min-height:300px;border-radius:0;overflow:hidden;border:1px solid var(--line);background:var(--stage)}
+#stage::after{content:"";position:absolute;inset:-1px;pointer-events:none;z-index:3;--t:rgba(217,164,65,.75);--L:16px;
+  background:
+   linear-gradient(var(--t),var(--t)) top left/var(--L) 1px no-repeat, linear-gradient(var(--t),var(--t)) top left/1px var(--L) no-repeat,
+   linear-gradient(var(--t),var(--t)) top right/var(--L) 1px no-repeat, linear-gradient(var(--t),var(--t)) top right/1px var(--L) no-repeat,
+   linear-gradient(var(--t),var(--t)) bottom left/var(--L) 1px no-repeat, linear-gradient(var(--t),var(--t)) bottom left/1px var(--L) no-repeat,
+   linear-gradient(var(--t),var(--t)) bottom right/var(--L) 1px no-repeat, linear-gradient(var(--t),var(--t)) bottom right/1px var(--L) no-repeat}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block}
+#visPick{position:absolute;top:10px;left:10px;display:flex;flex-direction:column;gap:0;z-index:2;border:1px solid var(--line);background:rgba(11,11,12,.75)}
+#visPick button{width:46px;height:46px;border:0;border-top:1px solid var(--line);border-radius:0;background:none;color:var(--muted);font:300 17px var(--ui);cursor:pointer}
+#visPick button:first-child{border-top:0}
+#visPick button.on{color:var(--brass);background:rgba(217,164,65,.08);box-shadow:inset 2px 0 0 var(--brass)}
+#prompt{position:absolute;left:64px;right:64px;top:14px;text-align:center;pointer-events:none}
+#prompt .big{min-height:72px;font:var(--dispw) 72px/1 var(--disp);text-shadow:0 0 30px currentColor;transition:filter .45s,opacity .45s}
+#prompt .big.blur{filter:blur(16px);opacity:.65}
+#prompt .sub{min-height:18px;margin-bottom:10px;color:var(--muted);font:300 14px var(--ui);text-transform:uppercase;letter-spacing:.28em}
+#status{position:absolute;left:0;right:0;bottom:16px;text-align:center;font:300 19px var(--ui);letter-spacing:.04em;padding:0 16px;pointer-events:none;min-height:22px}
+#status b{font-weight:500}
+#status .m{color:var(--muted);font-size:15px}
+.ctlRow{display:flex;gap:8px}
+.ctlRow .seg{flex:1}
+#grid{display:grid;grid-template-columns:repeat(6,1fr);gap:0;border-top:1px solid var(--line);border-left:1px solid var(--line)}
+#grid button{min-height:50px;border-radius:0;border:0;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:none;color:var(--text);font:300 17px var(--ui);cursor:pointer}
+#grid button:disabled{opacity:.4}
+#grid button.right{background:rgba(120,190,140,.16);box-shadow:inset 0 -2px 0 rgba(120,190,140,.9)}
+#grid button.wrong{background:rgba(210,80,70,.14);box-shadow:inset 0 -2px 0 rgba(210,80,70,.9)}
+@media (max-width:480px){#grid{grid-template-columns:repeat(4,1fr)}}
+#actions{display:flex;gap:8px}
+#actions button{flex:1;min-height:54px;border-radius:var(--r);border:1px solid var(--line);background:none;color:var(--text);
+  font:300 17px var(--ui);letter-spacing:.14em;text-transform:uppercase;cursor:pointer}
+#actions button.primary{border-color:var(--brass);color:var(--brass);background:rgba(217,164,65,.07)}
+#readout{font:11px var(--mono);color:var(--muted);text-align:center;min-height:14px}
+#sheet{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;z-index:5}
+.sheetBody{width:100%;max-width:640px;max-height:86%;overflow:auto;background:#121213;border:1px solid var(--line);border-top:1px solid var(--brass);border-bottom:0;border-radius:0;padding:18px 16px calc(env(safe-area-inset-bottom) + 18px)}
+.sheetBody h3{margin:0 0 14px;font:var(--dispw) 14px var(--disp);letter-spacing:.12em;display:flex;justify-content:space-between;align-items:center}
+.field{margin-bottom:16px}
+.field label.t{display:block;font:400 11px var(--mono);color:var(--muted);margin-bottom:7px;text-transform:uppercase;letter-spacing:.16em}
+.chips{display:flex;gap:0;flex-wrap:wrap;border-left:1px solid var(--line)}
+.chips button{min-width:48px;min-height:44px;border-radius:0;border:1px solid var(--line);border-left:0;background:none;color:var(--muted);font:400 16px var(--ui);cursor:pointer}
+.chips button.on{color:#0e0e0f;border-color:transparent}
+select{width:100%;padding:12px 10px;border-radius:var(--r);background:var(--bg);border:1px solid var(--line);color:var(--text);font:300 16px var(--ui)}
+select option{background:#121213}
+.check{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:16px}
+.check input{width:18px;height:18px;accent-color:var(--brass)}
+.hint{font-size:13px;color:var(--muted);margin-top:6px}
+input[type=range]{width:100%;accent-color:var(--brass)}
+#intro{position:fixed;inset:0;z-index:9;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--bg)}
+.introCard{max-width:400px;text-align:center}
+.introCard .logo{width:84px;height:114px;display:block;margin:0 auto 22px}
+.introCard h1{font:var(--dispw) 24px var(--disp);letter-spacing:.14em;margin:0 0 12px;color:var(--brass)}
+.introCard p{color:var(--muted);margin:0 0 8px}
+.introCard button{margin-top:18px;padding:16px 36px;border-radius:var(--r);border:1px solid var(--brass);background:rgba(217,164,65,.07);color:var(--brass);
+  font:300 17px var(--ui);letter-spacing:.16em;text-transform:uppercase;cursor:pointer}
+.err{color:#e0806c !important}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="top">
+    <div class="brand">EAR//</div>
+    <div class="seg cap" data-cap="PROGRAM" id="exSeg">
+      <button data-v="sing">Sing</button>
+      <button data-v="abs">Tone ID</button>
+    </div>
+    <button class="icon" id="gearBtn" aria-label="Settings">⚙︎</button>
+  </div>
+  <main id="stage">
+    <canvas id="cv"></canvas>
+    <div id="hud">
+      <div class="tk top"></div><div class="tk bot"></div>
+      <div class="tr"><b id="hView">WARP</b><br><span id="hTime">T+00:00</span></div>
+      <div class="meter" id="hMeter"></div><div class="mlab">SIG</div>
+    </div>
+    <div id="visPick">
+      <button data-v="liss" title="Lissajous">∞</button>
+      <button data-v="clock12" title="Chromatic clock">12</button>
+      <button data-v="clock7" title="Diatonic clock">7</button>
+      <button data-v="trace" title="Pitch trace">∿</button>
+      <button data-v="warp" title="Warp">⋀</button>
+    </div>
+    <div id="prompt"><div class="sub" id="pSub"></div><div class="big" id="pBig"></div></div>
+    <div id="status"></div>
+  </main>
+  <div id="dbar"><span id="dState"><i class="dot"></i>STBY</span><span id="dKey"></span><span id="dTgt"></span><span id="dDev" class="opt"></span><span class="grow" id="dExtra"></span></div>
+  <div class="ctlRow" id="singCtl">
+    <div class="seg cap" data-cap="MODE" id="modeSeg"><button data-v="practice">Practice</button><button data-v="recall">Recall</button></div>
+    <div class="seg cap" data-cap="PROMPT" id="promptSeg"><button data-v="root">Root</button><button data-v="degree">Degree</button></div>
+  </div>
+  <div id="grid" hidden></div>
+  <div id="actions"></div>
+  <div id="readout"></div>
+</div>
+
+<div id="sheet" hidden>
+  <div class="sheetBody">
+    <h3>Settings <button class="icon" id="closeSheet" aria-label="Close">✕</button></h3>
+    <div class="field"><label class="t">Key</label>
+      <select id="keySel"></select></div>
+    <div class="field"><label class="t">Scale</label>
+      <div class="seg" id="scaleSeg"><button data-v="major">Major</button><button data-v="minor">Natural minor</button></div></div>
+    <div class="field"><label class="t">Degree labels</label>
+      <div class="seg" id="numSeg"><button data-v="roman">Roman</button><button data-v="arabic">Numbers</button></div>
+      <div class="hint">Roman case follows the chord on that degree: I ii iii IV V vi vii° (major), i ii° ♭III iv v ♭VI ♭VII (minor).</div></div>
+    <div class="field"><label class="t">Degree pool (Degree prompts)</label>
+      <div class="chips" id="poolChips"></div></div>
+    <div class="field"><label class="t">Voice range</label>
+      <div class="seg" id="rangeSeg"><button data-v="low">Low</button><button data-v="mid">Mid</button><button data-v="high">High</button><button data-v="custom">Custom</button></div>
+      <div class="hint" id="rangeHint"></div>
+      <div style="margin-top:8px"><button class="icon" id="calBtn">Calibrate my range (6 s)</button></div></div>
+    <div class="field"><label class="t">Colour order</label>
+      <div class="seg" id="hueSeg"><button data-v="fifths">Fifths</button><button data-v="chromatic">Chromatic</button></div>
+      <div class="hint">Colour means scale degree relative to the tonic, never the absolute note.</div></div>
+    <div class="field"><label class="t">Font</label>
+      <div class="seg" id="fontSeg" style="font-size:12px"><button data-v="michroma" style="font-family:Michroma;font-size:11px;text-transform:none;letter-spacing:0">Michroma</button><button data-v="orbitron" style="font-family:Orbitron;font-size:11px;text-transform:none;letter-spacing:0">Orbitron</button><button data-v="audiowide" style="font-family:Audiowide;font-size:11px;text-transform:none;letter-spacing:0">Audiowide</button><button data-v="syncopate" style="font-family:Syncopate;font-size:11px;text-transform:none;letter-spacing:0">Syncopate</button></div>
+      <div class="hint" id="fontHint"></div></div>
+    <div class="field"><label class="t">Views</label>
+      <label class="check"><input type="checkbox" id="extraChk"> Show Chroma-12 clock and Trace views</label></div>
+    <div class="field"><label class="t">Practice mode</label>
+      <label class="check"><input type="checkbox" id="droneChk"> Tonic drone while singing (use headphones)</label>
+      <label class="check"><input type="checkbox" id="autoChk"> Auto-advance after a lock</label></div>
+    <div class="field"><label class="t">Detector</label>
+      <label class="check"><input type="checkbox" id="debugChk"> Show live detector readout</label>
+      <div class="hint">Mic gate (ignore input quieter than this): <span id="gateVal"></span></div>
+      <input type="range" id="gateRange" min="0.001" max="0.04" step="0.001"></div>
+  </div>
+</div>
+
+<div id="intro">
+  <div class="introCard">
+<svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="30 8 66 90" role="img" aria-label="Ear"><g fill="none" stroke="#d9a441" stroke-width="3.2" stroke-linecap="round"><path d="M37 46 C36 27 48 15 62 15 C78 15 88 27 88 42 C88 54 81 60 75 66 C69 72 69 80 63 86 C58 91 49 91 45 85" />
+<path d="M49 46 C49 34 56 27 64 27 C73 27 78 34 77 42 C76 49 69 52 65 56 C62 59 63 64 58 66" /></g></svg>
+    <h1>Ear Trainer</h1>
+    <p>Sing the root or a scale degree, or name hidden tones.</p>
+    <p>Headphones stop the mic hearing the reference tones.</p>
+    <button id="startBtn">Start</button>
+    <p id="introErr" class="err" style="margin-top:14px"></p>
+  </div>
+</div>
+
+<script>
+// ===== DSP START =====
+const DSP = (() => {
+  // YIN pitch detector (de Cheveigné & Kawahara 2002) on a 2W-sample window.
+  function yin(x, sr, d, fmin = 65, fmax = 1100, thresh = 0.15) {
+    const W = x.length >> 1;
+    const tauMax = Math.min(W - 1, Math.floor(sr / fmin));
+    const tauMin = Math.max(2, Math.floor(sr / fmax));
+    let s = 0;
+    for (let i = 0; i < W; i++) s += x[i] * x[i];
+    const rms = Math.sqrt(s / W);
+    if (rms < 1e-5) return { f: 0, conf: 0, rms };
+    d[0] = 1;
+    let running = 0;
+    for (let tau = 1; tau <= tauMax; tau++) {
+      let sum = 0;
+      for (let j = 0; j < W; j++) { const v = x[j] - x[j + tau]; sum += v * v; }
+      running += sum;
+      d[tau] = running > 0 ? (sum * tau) / running : 1;
+    }
+    let tau = -1;
+    for (let t = tauMin; t <= tauMax; t++) {
+      if (d[t] < thresh) {
+        while (t + 1 <= tauMax && d[t + 1] < d[t]) t++;
+        tau = t; break;
+      }
+    }
+    if (tau < 0) return { f: 0, conf: 0, rms };
+    let bt = tau;
+    if (tau > 1 && tau < tauMax) {
+      const a = d[tau - 1], b = d[tau], c = d[tau + 1];
+      const den = a - 2 * b + c;
+      if (den > 1e-12) bt = tau + (0.5 * (a - c)) / den;
+    }
+    return { f: sr / bt, conf: 1 - d[tau], rms };
+  }
+
+  function median(a) {
+    const s = a.slice().sort((p, q) => p - q), n = s.length;
+    return n % 2 ? s[(n - 1) >> 1] : 0.5 * (s[n / 2 - 1] + s[n / 2]);
+  }
+
+  // Smoothing + octave-error suppression. Times in seconds.
+  class Tracker {
+    constructor() { this.reset(); }
+    reset() { this.hist = []; this.last = null; this.jump = 0; this.voicedSince = null; this.unvoicedSince = null; }
+    push(r, t, gate) {
+      const voiced = r.f > 0 && r.rms >= gate;
+      if (!voiced) {
+        this.hist.length = 0; this.voicedSince = null; this.jump = 0;
+        if (this.unvoicedSince === null) this.unvoicedSince = t;
+        if (t - this.unvoicedSince > 0.25) this.last = null; // new note: forget octave history
+        return { t, voiced: false, rms: r.rms };
+      }
+      this.unvoicedSince = null;
+      if (this.voicedSince === null) this.voicedSince = t;
+      let m = 69 + 12 * Math.log2(r.f / 440);
+      if (this.last !== null) {
+        const diff = m - this.last, k = Math.round(diff / 12);
+        if (k !== 0 && Math.abs(diff - 12 * k) < 0.8) {
+          // looks like an octave error; trust it only if it persists ~5 frames
+          if (++this.jump < 5) m -= 12 * k; else { this.jump = 0; this.hist.length = 0; }
+        } else this.jump = 0;
+      }
+      this.hist.push(m);
+      if (this.hist.length > 5) this.hist.shift();
+      const med = median(this.hist);
+      this.last = med;
+      return { t, voiced: true, midi: med, raw: m, conf: r.conf, rms: r.rms,
+               settled: t - this.voicedSince >= 0.08 && this.hist.length >= 3 };
+    }
+  }
+
+  const wrapC = c => c - 1200 * Math.round(c / 1200);           // to [-600, 600]
+  // Octave folding: sung pitch relative to tonic, placed in the octave nearest the target.
+  const foldToTarget = (midi, tonic, targetC) => targetC + wrapC((midi - tonic) * 100 - targetC);
+  return { yin, median, Tracker, wrapC, foldToTarget };
+})();
+// ===== DSP END =====
+
+// ---------- music constants ----------
+const NOTE = ['C','C♯','D','E♭','E','F','F♯','G','A♭','A','B♭','B'];
+const NOTE_BTN = ['C','C♯/D♭','D','D♯/E♭','E','F','F♯/G♭','G','G♯/A♭','A','A♯/B♭','B'];
+const DEG = ['1','♭2','2','♭3','3','4','♯4','5','♭6','6','♭7','7'];
+const SCALES = { major: [0,2,4,5,7,9,11], minor: [0,2,3,5,7,8,10] };
+// Roman numerals: case/° follow the triad built on that degree in the current scale.
+// Accidentals are relative to the major scale, matching the numeral labels (so minor's 3rd is ♭III).
+// Non-scale degrees take their quality from the parallel scale; ♭II and ♯iv° otherwise.
+const ROMAN_MAJOR = { 0:'I', 2:'ii', 4:'iii', 5:'IV', 7:'V', 9:'vi', 11:'vii°' };
+const ROMAN_MINOR = { 0:'i', 2:'ii°', 3:'♭III', 5:'iv', 7:'v', 8:'♭VI', 10:'♭VII' };
+const ROMAN_OTHER = { 1:'♭II', 6:'♯iv°' };
+function degLabel(semi) {
+  const s = mod(Math.round(semi), 12);
+  if (S.numerals !== 'roman') return DEG[s];
+  const [own, other] = S.scale === 'minor' ? [ROMAN_MINOR, ROMAN_MAJOR] : [ROMAN_MAJOR, ROMAN_MINOR];
+  return own[s] || other[s] || ROMAN_OTHER[s];
+}
+const JUST = [[1,1],[16,15],[9,8],[6,5],[5,4],[4,3],[45,32],[3,2],[8,5],[5,3],[9,5],[15,8]];
+const RANGES = { low: [40,62], mid: [45,67], high: [53,77] };
+const mod = (a, n) => ((a % n) + n) % n;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+const noteName = m => { const r = Math.round(m); return NOTE[mod(r,12)] + (Math.floor(r/12) - 1); };
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const justCents = s => 1200 * Math.log2(JUST[s][0] / JUST[s][1]);
+
+// ---------- settings ----------
+const DEFAULTS = { ex:'sing', mode:'practice', visual:'liss', key:'random', scale:'major',
+  pool:[1,2,3,4,5,6,7], prompt:'root', numerals:'roman', extraViews:false, font:'michroma', range:'mid', lo:45, hi:67, hue:'fifths', drone:false, auto:true, debug:false, gate:0.006 };
+let S = { ...DEFAULTS };
+try { Object.assign(S, JSON.parse(localStorage.getItem('eartrainer.v02') || '{}')); } catch (e) {}
+// Display font (prompt, titles) + UI font pairs
+const FONTS = {
+  michroma:  { disp: '"Michroma"',  w: 400, ui: '"Exo 2"',      label: 'Michroma + Exo 2' },
+  orbitron:  { disp: '"Orbitron"',  w: 700, ui: '"Exo 2"',      label: 'Orbitron + Exo 2' },
+  audiowide: { disp: '"Audiowide"', w: 400, ui: '"Oxanium"',    label: 'Audiowide + Oxanium' },
+  syncopate: { disp: '"Syncopate"', w: 700, ui: '"Electrolize"', label: 'Syncopate + Electrolize' },
+};
+if (!FONTS[S.font]) S.font = 'michroma';
+function applyFont() {
+  const f = FONTS[S.font], r = document.documentElement.style;
+  r.setProperty('--disp', `${f.disp},${f.ui},ui-sans-serif,sans-serif`);
+  r.setProperty('--ui', `${f.ui},ui-sans-serif,system-ui,sans-serif`);
+  r.setProperty('--dispw', f.w);
+}
+applyFont();
+const save = () => { try { localStorage.setItem('eartrainer.v02', JSON.stringify(S)); } catch (e) {} };
+const scaleSemis = () => SCALES[S.scale];
+const rangeLH = () => S.range === 'custom' ? [S.lo, S.hi] : RANGES[S.range];
+
+// colour = scale degree relative to tonic
+// Mineral palette (h, s, l), indexed by position on the circle of fifths from the tonic:
+// 1 brass, 5 peridot, 2 malachite, 6 verdigris, 3 cerulean, 7 lapis, ♯4 azurite,
+// ♭2 amethyst, ♭6 rhodochrosite, ♭3 garnet, ♭7 cinnabar, 4 copper.
+// Any diatonic scale is a contiguous arc of this list.
+const PAL = [[40,75,52],[66,52,47],[145,45,45],[175,55,41],[200,61,46],[226,63,56],
+             [255,62,60],[285,50,54],[325,55,53],[352,61,55],[15,69,52],[26,75,52]];
+function palOf(semi) {
+  const s = mod(Math.round(semi), 12);
+  return PAL[S.hue === 'fifths' ? (s * 7) % 12 : s];
+}
+// l is relative: 64 = the base colour, higher = lighter glow
+const col = (semi, l = 64, a = 1) => { const [h, sa, L] = palOf(semi); return `hsla(${h},${sa}%,${clamp(L + (l - 64), 8, 95)}%,${a})`; };
+
+// ---------- audio ----------
+let ctx = null, master = null, analyser = null, timeBuf = null, yinBuf = null, warmWave = null, keysWave = null;
+const tracker = new DSP.Tracker();
+
+function makeWave(amps) {
+  const re = new Float32Array(amps.length + 1), im = new Float32Array(amps.length + 1);
+  amps.forEach((a, i) => im[i + 1] = a);
+  return ctx.createPeriodicWave(re, im);
+}
+async function startAudio() {
+  ctx = new (window.AudioContext || window.webkitAudioContext)();
+  ctx.resume();
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+  await ctx.resume();
+  master = ctx.createGain(); master.gain.value = 0.9;
+  const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4;
+  master.connect(comp); comp.connect(ctx.destination);
+  bus = newBus();
+  warmWave = makeWave([1, 0.45, 0.22, 0.12, 0.06, 0.03]);
+  keysWave = makeWave([1, 0.6, 0.35, 0.25, 0.12, 0.08, 0.05, 0.03]);
+  const src = ctx.createMediaStreamSource(stream);
+  analyser = ctx.createAnalyser(); analyser.fftSize = 2048; analyser.smoothingTimeConstant = 0;
+  src.connect(analyser);
+  const sink = ctx.createGain(); sink.gain.value = 0; analyser.connect(sink); sink.connect(ctx.destination); // keeps Safari pulling the graph
+  timeBuf = new Float32Array(2048); yinBuf = new Float32Array(1024);
+}
+document.addEventListener('pointerdown', () => { if (ctx && ctx.state !== 'running') ctx.resume(); });
+
+// All trial audio goes through a disposable bus. killAudio() fades the current bus out in 30 ms,
+// disconnects it, and starts a fresh one, so Skip / Next / Replay never layer sounds.
+let bus = null;
+function newBus() { const b = ctx.createGain(); b.gain.value = 1; b.connect(master); return b; }
+function killAudio() {
+  if (!ctx) return;
+  if (bus) {
+    const old = bus, t = ctx.currentTime;
+    old.gain.cancelScheduledValues(t); old.gain.setValueAtTime(old.gain.value, t); old.gain.linearRampToValueAtTime(0, t + 0.03);
+    setTimeout(() => { try { old.disconnect(); } catch (e) {} }, 120);
+  }
+  bus = newBus();
+  droneNodes = [];
+}
+function playNote(midi, t0, dur, o = {}) {
+  const gain = o.gain ?? 0.2, timbre = o.timbre || 'warm';
+  const f = mtof(midi);
+  if (timbre === 'pluck') return playPluck(f, t0, dur, gain);
+  const osc = ctx.createOscillator();
+  if (timbre === 'warm') osc.setPeriodicWave(warmWave);
+  else if (timbre === 'keys') osc.setPeriodicWave(keysWave);
+  else if (timbre === 'bright') osc.type = 'sawtooth';
+  else osc.type = 'sine';
+  osc.frequency.value = f;
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = timbre === 'bright' ? 2400 : 4000;
+  const g = ctx.createGain();
+  osc.connect(lp); lp.connect(g); g.connect(o.dest || bus || master);
+  g.gain.setValueAtTime(0, t0);
+  g.gain.linearRampToValueAtTime(gain, t0 + 0.015);
+  if (timbre === 'keys') g.gain.setTargetAtTime(gain * 0.25, t0 + 0.015, 0.45);
+  else g.gain.setTargetAtTime(gain * 0.75, t0 + 0.015, 0.3);
+  g.gain.setTargetAtTime(0, t0 + dur, 0.06);
+  osc.start(t0); osc.stop(t0 + dur + 0.5);
+  return { osc, g };
+}
+function playPluck(f, t0, dur, gain) {
+  const sr = ctx.sampleRate, n = Math.floor(sr * (dur + 0.4));
+  const N = Math.max(2, Math.round(sr / f - 0.5));
+  const buf = ctx.createBuffer(1, n, sr), d = buf.getChannelData(0), ring = new Float32Array(N);
+  for (let i = 0; i < N; i++) ring[i] = Math.random() * 2 - 1;
+  let idx = 0;
+  for (let i = 0; i < n; i++) { const nx = (idx + 1) % N; d[i] = ring[idx]; ring[idx] = 0.5 * (ring[idx] + ring[nx]) * 0.997; idx = nx; }
+  const src = ctx.createBufferSource(); src.buffer = buf;
+  src.playbackRate.value = f / (sr / (N + 0.5)); // correct integer-delay tuning error
+  const g = ctx.createGain(); g.gain.setValueAtTime(gain * 1.4, t0); g.gain.setTargetAtTime(0, t0 + dur, 0.08);
+  src.connect(g); g.connect(bus || master); src.start(t0); src.stop(t0 + dur + 0.4);
+  return { src, g };
+}
+function playBurst(t0) {
+  // aural "palate cleanser": swept noise + a scatter of random notes
+  const sr = ctx.sampleRate, n = Math.floor(sr * 0.65);
+  const buf = ctx.createBuffer(1, n, sr), d = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+  const src = ctx.createBufferSource(); src.buffer = buf;
+  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 0.8;
+  bp.frequency.setValueAtTime(300, t0); bp.frequency.exponentialRampToValueAtTime(5000, t0 + 0.6);
+  const g = ctx.createGain(); g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(0.16, t0 + 0.05); g.gain.linearRampToValueAtTime(0, t0 + 0.65);
+  src.connect(bp); bp.connect(g); g.connect(bus || master); src.start(t0);
+  for (let i = 0; i < 12; i++) playNote(36 + Math.random() * 60, t0 + i * 0.05, 0.05, { timbre: 'sine', gain: 0.07 });
+  return t0 + 0.65;
+}
+
+// ---------- trial state ----------
+let T = { phase: 'idle', tonic: 57, tc: 0, semi: 0, frames: [], flashes: [], timers: [] };
+const later = (fn, ms) => T.timers.push(setTimeout(fn, Math.max(0, ms)));
+function clearTimers() { T.timers.forEach(clearTimeout); T.timers = []; stopDrone(); killAudio(); }
+let droneNodes = [];
+function stopDrone() {
+  if (!ctx) return;
+  droneNodes.forEach(n => { try { n.g.gain.cancelScheduledValues(ctx.currentTime); n.g.gain.setTargetAtTime(0, ctx.currentTime, 0.08); n.osc.stop(ctx.currentTime + 0.4); } catch (e) {} });
+  droneNodes = [];
+}
+
+function placeTonic(pc) {
+  const [lo, hi] = rangeLH();
+  let t = lo + 1 + mod(pc - (lo + 1), 12);            // first pc at/above lo+1
+  if (t + 7 > hi && t - 12 >= lo - 2) t -= 12;
+  return t;
+}
+function newSingTrial() {
+  clearTimers();
+  const pc = S.key === 'random' ? Math.floor(Math.random() * 12) : +S.key;
+  T.tonic = placeTonic(pc);
+  const pool = S.prompt === 'root' ? [1] : (S.pool.length ? S.pool : [1]);
+  let deg = pick(pool);
+  if (pool.length > 1) while (deg === T.deg) deg = pick(pool);
+  T.deg = deg; T.semi = scaleSemis()[deg - 1]; T.tc = T.semi * 100;
+  runContext();
+}
+function runContext() {
+  clearTimers();
+  T.phase = 'context'; T.frames = []; T.result = null; T.replay = null;
+  setPrompt('', 'listen');
+  setStatus('');
+  render();
+  if (S.prompt === 'root') {                       // simple match: one reference tone
+    const tt = ctx.currentTime + 0.1;
+    playNote(T.tonic, tt, 1.2, { gain: 0.26 });
+    T.flashes = [{ t0: tt, t1: tt + 1.2, semis: [0] }];
+    setPrompt(targetLabel(), 'listen', 0);
+    later(startListen, (tt + 1.35 - ctx.currentTime) * 1000);
+    return;
+  }
+  const minor = S.scale === 'minor';
+  const chords = minor ? [[0,3,7],[0,5,8],[-2,2,7],[0,3,7]] : [[0,4,7],[0,5,9],[-1,2,7],[0,4,7]];
+  const bass = [-12, -7, -5, -12];
+  const base = T.tonic < 52 ? T.tonic + 12 * Math.ceil((52 - T.tonic) / 12) : T.tonic;
+  const t0 = ctx.currentTime + 0.08, step = 0.62;
+  T.flashes = [];
+  chords.forEach((c, i) => {
+    const t = t0 + i * step;
+    c.forEach(s => playNote(base + s, t, 0.56, { gain: 0.11 }));
+    playNote(base + bass[i], t, 0.56, { gain: 0.12 });
+    T.flashes.push({ t0: t, t1: t + 0.56, semis: c.map(s => mod(s, 12)) });
+  });
+  const tt = t0 + 4 * step + 0.15;
+  playNote(T.tonic, tt, 0.9, { gain: 0.24 });
+  T.flashes.push({ t0: tt, t1: tt + 0.9, semis: [0] });
+  later(() => setPrompt(degLabel(T.semi), 'tonic', T.semi), (tt - ctx.currentTime) * 1000);
+  later(startListen, (tt + 1.05 - ctx.currentTime) * 1000);
+}
+function startListen() {
+  T.phase = 'listen'; T.frames = []; T.listenStart = performance.now() / 1000; T.inTol = 0; T.lastT = null; T.ignoreUntil = 0;
+  tracker.reset();
+  setPrompt(targetLabel(), S.mode === 'recall' ? 'listening' : 'sing', T.semi);
+  if (S.mode === 'practice' && S.drone) {
+    const t = ctx.currentTime + 0.02;
+    droneNodes.push(playNote(T.tonic, t, 600, { gain: 0.07 }), playNote(T.tonic - 12, t, 600, { gain: 0.06 }));
+  }
+  render();
+}
+function hint() {
+  const t = ctx.currentTime + 0.02;
+  T.ignoreUntil = performance.now() / 1000 + 1.3;
+  playNote(T.tonic + T.semi, t, 1.0, { gain: 0.22 });
+}
+
+// called for each detector frame while listening
+function onListenFrame(fr, now) {
+  const t = now - T.listenStart;
+  if (t < 0.15 || (T.ignoreUntil && now < T.ignoreUntil)) return;
+  const f = { t, voiced: fr.voiced, rms: fr.rms, midi: fr.midi, settled: fr.settled };
+  if (fr.voiced) f.fc = DSP.foldToTarget(fr.midi, T.tonic, T.tc);
+  T.frames.push(f);
+  if (S.mode === 'practice') {
+    if (f.voiced && f.settled) {
+      const eET = f.fc - T.tc, eJ = f.fc - justCents(T.semi);
+      const ok = Math.abs(eET) <= 25 || Math.abs(eJ) <= 25;
+      T.inTol = ok ? T.inTol + (T.lastT != null ? t - T.lastT : 0) : 0;
+      T.lastErr = eET;
+    } else T.inTol = 0;
+    T.lastT = t;
+    if (T.inTol >= 0.5) practiceSuccess(f);
+    else if (t > 25) { T.phase = 'missed'; stopDrone(); setStatus('<span class="m">no lock — try again</span>'); render(); }
+  } else {
+    const land = checkLanding(t);
+    if (land) recallLanded(land, t);
+    else if (t > 12) { T.phase = 'missed'; setStatus('<span class="m">no steady note heard</span>'); render(); }
+  }
+}
+function checkLanding(tnow) {
+  const fr = T.frames, win = [];
+  for (let i = fr.length - 1; i >= 0 && fr[i].t >= tnow - 0.3; i--) win.push(fr[i]);
+  if (win.length < 5 || win[win.length - 1].t > tnow - 0.25) return null;
+  if (!win.every(f => f.voiced && f.settled)) return null;
+  const ms = win.map(f => f.midi);
+  if (Math.max(...ms) - Math.min(...ms) > 0.4) return null;
+  return { midi: DSP.median(ms), fc: DSP.median(win.map(f => f.fc)) };
+}
+function verdict(fc) {
+  const err = fc - T.tc, sung = mod(Math.round(fc / 100), 12), ok = Math.abs(err) < 50;
+  const ej = fc - justCents(T.semi);
+  return { err, ej, sung, ok };
+}
+function practiceSuccess(f) {
+  T.phase = 'success'; stopDrone();
+  const v = verdict(f.fc); T.result = { fc: f.fc, ...v };
+  T.lockFlash = performance.now() / 1000;
+  setStatus(`<b style="color:${col(T.semi, 74)}">LOCK ${fmtC(v.err)}</b> <span class="m">just ${fmtC(v.ej)}</span>`);
+  render();
+  if (S.auto) later(newSingTrial, 1700);
+}
+function recallLanded(land, t) {
+  const v = verdict(land.fc);
+  T.result = { fc: land.fc, midi: land.midi, ...v };
+  // replay the attempt from shortly before the first voiced frame
+  let i0 = T.frames.findIndex(f => f.voiced);
+  i0 = Math.max(0, i0 - 3);
+  const frames = T.frames.slice(i0);
+  T.replay = { frames, t0: frames[0].t, start: performance.now() / 1000, idx: 0, cur: null, end: frames[frames.length - 1].t };
+  T.phase = 'replay'; traceVis.hist = []; warpVis.hist = []; clockVis.trail = [];
+  setPrompt(targetLabel(), 'replay', T.semi);
+  setStatus('');
+  render();
+}
+function finishReplay() {
+  T.phase = 'result';
+  const r = T.result;
+  if (r.ok && T.lastBurstFor !== r) { T.lastBurstFor = r; T.lockFlash = performance.now() / 1000; }
+  const head = r.ok
+    ? `<b style="color:${col(T.semi, 74)}">✓ ${fmtC(r.err)}</b>`
+    : `<b class="err">✗</b> sang <b style="color:${col(r.sung, 74)}">${degLabel(r.sung)}</b> <span class="m">${fmtC(r.fc - Math.round(r.fc / 100) * 100)}</span>`;
+  setStatus(head);
+  setPrompt(targetLabel(), '', T.semi);
+  render();
+}
+function compare() {
+  const r = T.result; if (!r) return;
+  killAudio();
+  const t = ctx.currentTime + 0.05;
+  playNote(T.tonic, t, 1.1, { gain: 0.15 }); playNote(T.tonic + r.fc / 100, t, 1.1, { gain: 0.18 });
+  playNote(T.tonic, t + 1.4, 1.1, { gain: 0.15 }); playNote(T.tonic + T.semi, t + 1.4, 1.1, { gain: 0.18 });
+  setStatus('<span class="m">yours → target</span>');
+  later(() => T.phase === 'result' && finishReplay(), 2800);
+}
+function replayAgain() {
+  if (!T.replay) return;
+  T.replay.start = performance.now() / 1000; T.replay.idx = 0; T.replay.cur = null;
+  traceVis.hist = []; warpVis.hist = []; T.phase = 'replay'; render();
+}
+const fmtC = c => (c >= 0 ? '+' : '−') + Math.abs(Math.round(c)) + '¢';
+
+// ---------- absolute tool ----------
+let tally = { n: 0, right: 0, near: 0 };
+function newAbsTrial() {
+  clearTimers();
+  T.phase = 'burst'; T.absPick = null;
+  T.absMidi = 45 + Math.floor(Math.random() * 32);   // A2..E5
+  T.absTimbre = pick(['sine', 'warm', 'keys', 'pluck']);
+  setPrompt('', 'clearing'); setStatus('');
+  render();
+  const t0 = ctx.currentTime + 0.05, tEnd = playBurst(t0);
+  T.burstT = [t0, tEnd];
+  const tt = tEnd + 0.5;
+  playAbsTone(tt);
+  later(() => { T.phase = 'answer'; setPrompt('?', 'name it'); render(); }, (tt - ctx.currentTime) * 1000);
+}
+function playAbsTone(tt) {
+  T.toneT = [tt, tt + 1.3];
+  playNote(T.absMidi, tt, 1.3, { timbre: T.absTimbre, gain: T.absTimbre === 'sine' ? 0.26 : 0.22 });
+}
+function answerAbs(pc) {
+  if (T.phase !== 'answer') return;
+  T.absPick = pc; T.phase = 'reveal';
+  const truth = mod(T.absMidi, 12), dist = Math.min(mod(pc - truth, 12), mod(truth - pc, 12));
+  tally.n++; if (dist === 0) tally.right++; if (dist <= 1) tally.near++;
+  setPrompt(NOTE[truth], `${noteName(T.absMidi)} · ${T.absTimbre}`);
+  setStatus(dist === 0 ? '<b>✓</b>' : `<b class="err">✗ ${NOTE[pc]}</b> <span class="m">${dist} semitone${dist > 1 ? 's' : ''} off</span>`);
+  render();
+}
+
+// ---------- range calibration ----------
+function startCalib() {
+  closeSheet(); clearTimers();
+  T.prevPhase = T.phase; T.phase = 'calib'; T.calib = []; T.calibStart = performance.now() / 1000;
+  tracker.reset();
+  setPrompt('↕', 'slide low → high');
+  render();
+  later(endCalib, 6000);
+}
+function endCalib() {
+  const ms = T.calib.slice().sort((a, b) => a - b);
+  T.phase = 'idle';
+  if (ms.length < 30) { setStatus('<span class="err">Not enough voiced sound — try again.</span>'); render(); return; }
+  const lo = Math.round(ms[Math.floor(ms.length * 0.08)]), hi = Math.round(ms[Math.floor(ms.length * 0.92)]);
+  if (hi - lo < 7) { setStatus('<span class="err">Range came out under a fifth — try a wider slide.</span>'); render(); return; }
+  S.range = 'custom'; S.lo = lo; S.hi = hi; save(); syncUI();
+  setStatus(`Range set: <b>${noteName(lo)} – ${noteName(hi)}</b>`); setPrompt('', '');
+  render();
+}
+
+// ---------- visuals ----------
+const cv = document.getElementById('cv'), g = cv.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+function resize() {
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  const r = cv.getBoundingClientRect();
+  W = Math.max(1, Math.round(r.width * DPR)); H = Math.max(1, Math.round(r.height * DPR));
+  cv.width = W; cv.height = H;
+}
+window.addEventListener('resize', resize);
+
+function activeFlash() {
+  if (!ctx) return null;
+  const t = ctx.currentTime;
+  if (T.phase === 'context') {           // hold the latest figure through the gaps (no flicker)
+    let f = null; for (const x of T.flashes) if (t >= x.t0) f = x;
+    return f;
+  }
+  return T.flashes.find(f => t >= f.t0 && t <= f.t1) || null;
+}
+function currentInput(now) {
+  const inp = { now, tc: T.tc, semi: T.semi, tonicHz: mtof(T.tonic), showTarget: false, voiced: false, fc: 0, rms: 0, flash: activeFlash(), hold: false };
+  if (S.ex !== 'sing') return inp;
+  const p = T.phase;
+  if (p === 'listen') {
+    const fr = T.frames[T.frames.length - 1];
+    if (S.mode === 'recall') { inp.orb = true; inp.rms = liveFrame.rms || 0; inp.voicedNow = !!liveFrame.voiced; }
+    else { inp.showTarget = true; if (fr && fr.voiced) { inp.voiced = true; inp.fc = fr.fc; inp.rms = fr.rms; } }
+  } else if (p === 'replay' && T.replay && T.replay.cur) {
+    const c = T.replay.cur; inp.showTarget = true;
+    if (c.voiced) { inp.voiced = true; inp.fc = c.fc; inp.rms = c.rms; }
+  } else if ((p === 'result' || p === 'success') && T.result) {
+    inp.showTarget = true; inp.voiced = true; inp.fc = T.result.fc; inp.rms = 0.03; inp.hold = true;
+    inp.locked = p === 'success';
+  } else if (p === 'calib') {
+    inp.orb = true; inp.rms = liveFrame.rms || 0; inp.voicedNow = !!liveFrame.voiced;
+  }
+  return inp;
+}
+function stepReplay(now) {
+  const R = T.replay, el = now - R.start;
+  while (R.idx < R.frames.length && R.frames[R.idx].t - R.t0 <= el) R.cur = R.frames[R.idx++];
+  if (el > R.end - R.t0 + 0.25) finishReplay();
+}
+
+function fade(a) { g.globalCompositeOperation = 'source-over'; g.fillStyle = `rgba(11,11,12,${a})`; g.fillRect(0, 0, W, H); }
+function clearAll() { g.globalCompositeOperation = 'source-over'; g.fillStyle = '#0b0b0c'; g.fillRect(0, 0, W, H); }
+
+// --- Lissajous: x = tonic sine, y = voice sine. A just ratio p:q closes into a stable figure.
+const lissVis = {
+  phase: 0, amb: 0, last: null, idleA: 1, tgtA: 0,
+  curve(ratio, cycles, phase, stroke, width, scale = 1) {
+    const R = Math.min(W, H) * 0.31 * scale, cx = W / 2, cy = H * 0.56;
+    const N = Math.min(2600, Math.round(60 * Math.max(cycles, cycles * ratio) + 80));
+    g.beginPath();
+    for (let i = 0; i <= N; i++) {
+      const th = (2 * Math.PI * cycles * i) / N;
+      const x = cx + R * Math.sin(th), y = cy - R * Math.sin(ratio * th + phase);
+      i ? g.lineTo(x, y) : g.moveTo(x, y);
+    }
+    g.strokeStyle = stroke; g.lineWidth = width; g.stroke();
+  },
+  draw(dt, inp) {
+    if (inp.orb) { fade(0.5); fx.bg(dt, inp, false, null); return orb(inp, dt); }   // no persistence pile-up on the orb
+    fade(0.2);
+    fx.bg(dt, inp, true, hazeSemiOf(inp));
+    g.globalCompositeOperation = 'lighter'; g.lineJoin = 'round';
+    this.amb += dt * 0.25;
+    // the last voice figure lingers and fades instead of vanishing
+    const drawLast = () => {
+      const Lf = this.last; if (!Lf || Lf.a <= 0.01) return;
+      this.curve(Lf.ratio, Lf.cycles, Lf.phase, col(Lf.semi, 66, 0.55 * Lf.a), 1.6 * DPR);
+      Lf.a -= dt * 0.7;
+    };
+    // ambient figure only when truly idle, faded in/out
+    this.idleA += ((T.phase === 'idle' ? 1 : 0) - this.idleA) * Math.min(1, dt * 1.5);
+    if (this.idleA > 0.01) this.curve(1.5 + 0.02 * Math.sin(this.amb), 2, this.amb, `rgba(190,190,200,${0.12 * this.idleA})`, 1.2 * DPR);
+    if (inp.flash) {                       // key context: each chord tone's figure in its colour, faded in
+      const k = clamp((ctx.currentTime - inp.flash.t0) / 0.2, 0, 1);
+      inp.flash.semis.forEach(s => { const [p, q] = JUST[s]; this.curve(p / q, q, this.amb + s, col(s, 60, 0.35 * k), 2 * DPR, 0.9); });
+      drawLast();
+      return;
+    }
+    const [p, q] = JUST[inp.semi], rj = p / q;
+    if (inp.showTarget) {
+      this.tgtA = Math.min(1, (this.tgtA || 0) + dt * 2.5);
+      this.curve(rj, q, 0.9, col(inp.semi, 64, 0.24 * this.tgtA), 1.5 * DPR);
+      fx.wellNext = { x: W / 2, y: H * 0.56, swirl: true };
+    } else this.tgtA = 0;
+    if (!inp.voiced) { drawLast(); return; }
+    const ra = Math.pow(2, inp.fc / 1200);
+    const offJust = 1200 * Math.log2(ra / rj);
+    if (!inp.hold) {
+      const rate = clamp(q * inp.tonicHz * (ra - rj) * 0.2, -2.5, 2.5);   // physical beat rate, slowed
+      this.phase += 2 * Math.PI * rate * dt;
+    }
+    const near = mod(Math.round(inp.fc / 100), 12);
+    const lock = Math.abs(offJust) < 10;
+    const L = lock ? 72 : 62;
+    this.last = { ratio: ra, cycles: q, phase: 0.9 + this.phase, semi: near, a: 1 };
+    this.curve(ra, q, 0.9 + this.phase, col(near, L, lock ? 0.25 : 0.14), 7 * DPR);
+    this.curve(ra, q, 0.9 + this.phase, col(near, L + 8, lock ? 0.95 : 0.75), 1.6 * DPR);
+    // one flaring star travels the figure, only while you're matching the target
+    // (match = within 25¢ of the equal-tempered or just target, same as the lock rule)
+    const match = inp.showTarget && (Math.abs(inp.fc - inp.tc) <= 25 || Math.abs(offJust) <= 25);
+    if (match) {
+      const R = Math.min(W, H) * 0.31, cx = W / 2, cy = H * 0.56;
+      const th = mod(fx.t * 2.1, 2 * Math.PI * q);
+      const hx = cx + R * Math.sin(th), hy = cy - R * Math.sin(ra * th + 0.9 + this.phase);
+      fx.star(hx, hy, near, lock ? 1.2 : 1);
+      fx.head(hx, hy, near);
+      if (!inp.hold) {
+        fx.emit(hx, hy, near, { n: 2, spread: 90 });
+        if (Math.random() < 0.06) fx.puff(hx, hy, near);
+      }
+    }
+  }
+};
+
+// --- Pitch-class clock with glowing particle
+const clockVis = {
+  trail: [], sparks: [],
+  angleOf(c, diatonic) {
+    c = mod(c, 1200);
+    if (!diatonic) return -Math.PI / 2 + (c / 1200) * 2 * Math.PI;
+    const sc = scaleSemis().map(s => s * 100).concat([1200]);
+    let i = 0; while (i < 6 && c >= sc[i + 1]) i++;
+    const fr = (c - sc[i]) / (sc[i + 1] - sc[i]);
+    return -Math.PI / 2 + ((i + fr) / 7) * 2 * Math.PI;
+  },
+  draw(dt, inp, diatonic) {
+    clearAll();
+    fx.bg(dt, inp, false, hazeSemiOf(inp));
+    const R = Math.min(W, H) * 0.3, cx = W / 2, cy = H * 0.57, now = inp.now;
+    // Root prompts: fixed absolute clock (C at top, note names). Positions are still computed from
+    // cents relative to the tonic, rotated by the tonic's pitch class.
+    const absMode = S.prompt === 'root' && !diatonic, tpc = mod(T.tonic, 12);
+    const off = absMode ? tpc * 100 : 0;
+    const ang = c => this.angleOf(c + off, diatonic);
+    // In Recall, don't mark the target on the fixed clock until the attempt is scored
+    const hideTarget = absMode && S.mode === 'recall' && ['context', 'listen', 'missed'].includes(T.phase);
+    g.globalCompositeOperation = 'source-over';
+    g.strokeStyle = 'rgba(255,255,255,0.08)'; g.lineWidth = 1.5 * DPR;
+    g.beginPath(); g.arc(cx, cy, R, 0, 2 * Math.PI); g.stroke();
+    const sc = absMode ? [0] : scaleSemis(), flash = inp.flash && !hideTarget ? inp.flash.semis : [];
+    const nodes = diatonic ? sc : [...Array(12).keys()];
+    if (flash.length > 1) {                       // chord shape during the cadence
+      const pts = flash.map(s => ang(s * 100)).sort((a, b) => a - b);
+      g.globalCompositeOperation = 'lighter';
+      g.beginPath(); pts.forEach((a, i) => { const x = cx + R * Math.cos(a), y = cy + R * Math.sin(a); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.closePath();
+      g.fillStyle = col(flash[0], 60, 0.10); g.fill();
+      g.strokeStyle = col(flash[0], 70, 0.55); g.lineWidth = 2 * DPR; g.stroke();
+    }
+    g.font = `500 ${15 * DPR}px ${FONTS[S.font].ui},system-ui,sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    nodes.forEach(s => {
+      const a = ang(s * 100), x = cx + R * Math.cos(a), y = cy + R * Math.sin(a);
+      const lit = flash.includes(s);
+      if (absMode) {                              // neutral note-name clock; only the target is coloured
+        const tgt = s === 0 && !hideTarget;
+        const r = (tgt ? 7 : 4.5) * DPR * (lit ? 1.8 : 1);
+        g.globalCompositeOperation = 'lighter';
+        if (lit) { g.fillStyle = col(0, 66, 0.45); g.beginPath(); g.arc(x, y, r * 3.2, 0, 7); g.fill(); }
+        g.fillStyle = tgt ? col(0, 64, 0.9) : 'rgba(188,188,192,0.35)';
+        g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+        g.globalCompositeOperation = 'source-over';
+        g.fillStyle = tgt ? col(0, 76, 1) : 'rgba(231,230,227,0.6)';
+        g.fillText(NOTE[mod(s + tpc, 12)], cx + (R + 26 * DPR) * Math.cos(a), cy + (R + 26 * DPR) * Math.sin(a));
+        return;
+      }
+      const inS = sc.includes(s);
+      const r = (inS ? 7 : 3.5) * DPR * (lit ? 1.8 : 1);
+      g.globalCompositeOperation = 'lighter';
+      if (lit) { g.fillStyle = col(s, 66, 0.45); g.beginPath(); g.arc(x, y, r * 3.2, 0, 7); g.fill(); }
+      g.fillStyle = col(s, inS ? 62 : 45, inS ? (lit ? 1 : 0.75) : 0.35);
+      g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+      g.globalCompositeOperation = 'source-over';
+      g.fillStyle = inS ? 'rgba(231,230,227,0.8)' : 'rgba(231,230,227,0.22)';
+      g.fillText(degLabel(s), cx + (R + 26 * DPR) * Math.cos(a), cy + (R + 26 * DPR) * Math.sin(a));
+    });
+    if (inp.orb) return orb(inp, dt, true);
+    if (inp.showTarget) {
+      const a = ang(inp.tc), x = cx + R * Math.cos(a), y = cy + R * Math.sin(a);
+      const pulse = 1 + 0.15 * Math.sin(now * 4);
+      g.globalCompositeOperation = 'lighter';
+      g.strokeStyle = col(inp.semi, 70, 0.8); g.lineWidth = 2 * DPR;
+      g.beginPath(); g.arc(x, y, 15 * DPR * pulse, 0, 7); g.stroke();
+      fx.moons(x, y, inp.semi, 1, 24 * DPR, 1.6);          // a small moon circling the target
+      fx.wellNext = { x, y, swirl: false };
+    }
+    if (inp.voiced) {
+      if (!inp.hold || !this.trail.length) this.trail.push({ c: inp.fc, rms: inp.rms });
+    } else if (!inp.hold && this.trail.length) this.trail.shift();
+    if (this.trail.length > 36) this.trail.shift();
+    g.globalCompositeOperation = 'lighter';
+    this.trail.forEach((p, i) => {
+      const k = (i + 1) / this.trail.length, a = ang(p.c);
+      const rr = R * (1 - 0.06 * (1 - k));
+      const x = cx + rr * Math.cos(a), y = cy + rr * Math.sin(a), near = Math.round(p.c / 100);
+      g.fillStyle = col(near, 66, 0.08 + 0.25 * k);
+      g.beginPath(); g.arc(x, y, (3 + 9 * k) * DPR, 0, 7); g.fill();
+    });
+    const head = this.trail[this.trail.length - 1];
+    if (head && inp.voiced) {
+      const a = ang(head.c), x = cx + R * Math.cos(a), y = cy + R * Math.sin(a), near = Math.round(head.c / 100);
+      const sz = (8 + clamp(head.rms * 200, 0, 8)) * DPR;
+      g.fillStyle = col(near, 66, 0.18); g.beginPath(); g.arc(x, y, sz * 2.6, 0, 7); g.fill();
+      fx.star(x, y, near, 1.4);
+      fx.moons(x, y, near, 2, sz * 2.2, 2.4);
+      fx.head(x, y, near);
+      const close = inp.showTarget && Math.abs(inp.fc - inp.tc) < 25;
+      if (!inp.hold) {
+        fx.emit(x, y, near, { n: close ? 3 : 1, spread: close ? 130 : 50 });
+        if (Math.random() < 0.1) fx.puff(x, y, near);
+      }
+    }
+    if (!inp.voiced && !inp.hold) this.trail.length = Math.max(0, this.trail.length - 2);
+  }
+};
+
+// --- Scrolling trace relative to the target (y = cents from target, folded)
+const traceVis = {
+  hist: [], frozenAt: 0,
+  draw(dt, inp) {
+    clearAll();
+    fx.bg(dt, inp, false, hazeSemiOf(inp));
+    const now = inp.hold ? this.frozenAt : inp.now;
+    if (!inp.hold) this.frozenAt = inp.now;
+    const span = 650, top = H * 0.16, bot = H * 0.9, mid = (top + bot) / 2;
+    const yOf = e => mid - (e / span) * (bot - top) / 2;
+    // Root prompts: absolute note names; only the target line is coloured.
+    // The axis is centred on the target, so in Recall the labels stay hidden until scoring.
+    const absMode = S.prompt === 'root', tpc = mod(T.tonic, 12);
+    const hideTarget = absMode && S.mode === 'recall' && ['context', 'listen', 'missed'].includes(T.phase);
+    const sc = absMode ? [0] : scaleSemis(), flash = inp.flash && !hideTarget ? inp.flash.semis : [];
+    g.font = `500 ${13 * DPR}px ${FONTS[S.font].ui},system-ui,sans-serif`; g.textBaseline = 'middle'; g.textAlign = 'right';
+    for (let s = 0; s < 12; s++) {
+      const e = DSP.wrapC(s * 100 - inp.tc); if (Math.abs(e) > span) continue;
+      const y = yOf(e), inS = sc.includes(s), lit = flash.includes(s);
+      g.globalCompositeOperation = 'source-over';
+      if (absMode) {
+        const tgt = s === 0 && !hideTarget;
+        g.strokeStyle = tgt ? col(0, 60, lit ? 0.9 : 0.4) : 'rgba(188,188,192,0.10)'; g.lineWidth = (lit ? 3 : 1) * DPR;
+        g.beginPath(); g.moveTo(0, y); g.lineTo(W - 40 * DPR, y); g.stroke();
+        if (!hideTarget) { g.fillStyle = tgt ? col(0, 76, 1) : 'rgba(231,230,227,0.55)'; g.fillText(NOTE[mod(s + tpc, 12)], W - 12 * DPR, y); }
+        continue;
+      }
+      g.strokeStyle = col(s, 60, lit ? 0.9 : inS ? 0.28 : 0.08); g.lineWidth = (lit ? 3 : 1) * DPR;
+      g.beginPath(); g.moveTo(0, y); g.lineTo(W - 40 * DPR, y); g.stroke();
+      g.fillStyle = inS ? col(s, 72, 0.95) : 'rgba(231,230,227,0.22)';
+      g.fillText(degLabel(s), W - 12 * DPR, y);
+    }
+    if (inp.orb) return orb(inp, dt);
+    if (inp.showTarget) { g.fillStyle = col(inp.semi, 60, 0.12); g.fillRect(0, yOf(30), W - 40 * DPR, yOf(-30) - yOf(30)); fx.wellNext = { x: W - 60 * DPR, y: yOf(0), swirl: true }; }
+    if (!inp.hold) this.hist.push({ t: inp.now, v: inp.voiced, e: inp.voiced ? inp.fc - inp.tc : 0, c: inp.fc });
+    const pps = W / 4.5, xNow = W - 60 * DPR;
+    while (this.hist.length && this.hist[0].t < now - 5) this.hist.shift();
+    g.globalCompositeOperation = 'lighter'; g.lineCap = 'round';
+    for (let pass = 0; pass < 2; pass++) {
+      for (let i = 1; i < this.hist.length; i++) {
+        const a = this.hist[i - 1], b = this.hist[i];
+        if (!a.v || !b.v || Math.abs(a.e - b.e) > 250) continue;
+        const near = Math.round(b.c / 100);
+        g.strokeStyle = pass ? col(near, 78, 0.95) : col(near, 62, 0.15);
+        g.lineWidth = (pass ? 2.2 : 9) * DPR;
+        g.beginPath(); g.moveTo(xNow - (now - a.t) * pps, yOf(a.e)); g.lineTo(xNow - (now - b.t) * pps, yOf(b.e)); g.stroke();
+      }
+    }
+    const last = this.hist[this.hist.length - 1];
+    if (last && last.v) {
+      const near = Math.round(last.c / 100), y = yOf(last.e);
+      fx.star(xNow, y, near, 1.2); fx.head(xNow, y, near);
+      if (!inp.hold) {                                       // sparks ride the scroll leftwards
+        fx.emit(xNow, y, near, { n: 2, spread: 50, vx: -pps * 0.9 });
+        if (Math.random() < 0.1) fx.puff(xNow, y, near, -pps * 0.6);
+      }
+    }
+  }
+};
+
+// --- Warp: the trace laid on a floor that converges to a vanishing point; you fly over it.
+// Chase-camera perspective: your pitch is a ship at depth ZS; the trail it leaves streams toward you.
+const warpVis = {
+  hist: [], frozenAt: 0,
+  draw(dt, inp) {
+    clearAll();
+    const vpx = W / 2, hy = Math.max(H * 0.32, 150 * DPR), by = H * 1.02, ZS = 2.4, SPEED = 0.7, ZFAR = 60, ZNEAR = 0.9, SPAN = 6.5;
+    const now = inp.hold ? this.frozenAt : inp.now;
+    if (!inp.hold) this.frozenAt = inp.now;
+    const k = (W * 0.46) / SPAN;
+    const sy = Z => hy + (by - hy) / Z, sx = (X, Z) => vpx + (X * k) / Z;
+    fx.center = { x: vpx, y: hy };
+    fx.bg(dt, inp, false, hazeSemiOf(inp));
+    fx.center = null;
+    const absMode = S.prompt === 'root', tpc = mod(T.tonic, 12);
+    const hideTarget = absMode && S.mode === 'recall' && ['context', 'listen', 'missed'].includes(T.phase);
+    const sc = absMode ? [0] : scaleSemis(), flash = inp.flash && !hideTarget ? inp.flash.semis : [];
+    const travel = now * SPEED;
+    // horizon glow
+    g.globalCompositeOperation = 'lighter';
+    const hg = g.createRadialGradient(vpx, hy, 0, vpx, hy, W * 0.5);
+    hg.addColorStop(0, 'rgba(170,180,210,0.10)'); hg.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = hg; g.fillRect(0, 0, W, H);
+    // floor rungs streaming toward you
+    for (let n = 0; n < 30; n++) {
+      const Z = ZNEAR + mod(n - travel, 30), y = sy(Z);
+      const a = 0.09 * clamp((Z - ZNEAR) * 2, 0, 1) * (1 - Z / 31);
+      g.strokeStyle = `rgba(185,192,215,${a})`; g.lineWidth = Math.max(0.6, 1.4 / Z) * DPR;
+      g.beginPath(); g.moveTo(sx(-SPAN, Z), y); g.lineTo(sx(SPAN, Z), y); g.stroke();
+    }
+    // tone lines converging on the vanishing point
+    g.font = `500 ${12 * DPR}px ${FONTS[S.font].ui},system-ui,sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    for (let s = 0; s < 12; s++) {
+      const X = DSP.wrapC(s * 100 - inp.tc) / 100; if (Math.abs(X) > SPAN) continue;
+      const inS = sc.includes(s), lit = flash.includes(s), tgt = absMode && s === 0 && !hideTarget;
+      const stroke = a => absMode ? (tgt ? col(0, 60, a) : `rgba(188,188,192,${a * 0.35})`) : col(s, 60, inS ? a : a * 0.3);
+      const base = lit ? 0.9 : (absMode ? (tgt ? 0.45 : 0.3) : (inS ? 0.3 : 0.25));
+      g.strokeStyle = stroke(base); g.lineWidth = (lit ? 2.5 : 1) * DPR;
+      g.beginPath(); g.moveTo(sx(X, ZFAR), sy(ZFAR)); g.lineTo(sx(X, ZNEAR), sy(ZNEAR)); g.stroke();
+      // light dashes travelling along the line
+      if (inS || tgt || lit) {
+        g.strokeStyle = stroke(lit ? 1 : 0.55); g.lineWidth = (lit ? 3 : 2) * DPR;
+        for (let m = 0; m < 12; m++) {
+          const Z = ZNEAR + mod(m * 2.5 - travel * 1.0, 30); if (Z > 28) continue;
+          g.beginPath(); g.moveTo(sx(X, Z + 0.45), sy(Z + 0.45)); g.lineTo(sx(X, Z), sy(Z)); g.stroke();
+        }
+      }
+      if (!(absMode && hideTarget) && (absMode || inS || lit)) {   // degree mode: label scale tones only
+        g.globalCompositeOperation = 'source-over';
+        g.fillStyle = absMode ? (tgt ? col(0, 76, 1) : 'rgba(231,230,227,0.55)') : (inS ? col(s, 72, 0.95) : 'rgba(231,230,227,0.22)');
+        g.fillText(absMode ? NOTE[mod(s + tpc, 12)] : degLabel(s), sx(X, absMode ? 1.3 : 1.55), sy(absMode ? 1.3 : 1.55));
+        g.globalCompositeOperation = 'lighter';
+      }
+    }
+    if (inp.orb) return orb(inp, dt);
+    if (inp.showTarget) {                                    // target lane
+      const w = 0.3;
+      g.fillStyle = col(inp.semi, 60, 0.10);
+      g.beginPath(); g.moveTo(sx(-w, ZFAR), sy(ZFAR)); g.lineTo(sx(w, ZFAR), sy(ZFAR)); g.lineTo(sx(w, ZNEAR), sy(ZNEAR)); g.lineTo(sx(-w, ZNEAR), sy(ZNEAR)); g.closePath(); g.fill();
+      fx.wellNext = { x: sx(0, ZS), y: sy(ZS), swirl: true };
+    }
+    if (!inp.hold) this.hist.push({ t: inp.now, v: inp.voiced, e: inp.voiced ? (inp.fc - inp.tc) / 100 : 0, c: inp.fc });
+    while (this.hist.length && this.hist[0].t < now - 3) this.hist.shift();
+    g.lineCap = 'round';
+    for (let pass = 0; pass < 2; pass++) {
+      for (let i = 1; i < this.hist.length; i++) {
+        const a = this.hist[i - 1], b = this.hist[i];
+        if (!a.v || !b.v || Math.abs(a.e - b.e) > 2.5) continue;
+        const Za = ZS - (now - a.t) * SPEED, Zb = ZS - (now - b.t) * SPEED;
+        if (Zb < ZNEAR) continue;
+        const Z1 = Math.max(Za, ZNEAR), near = Math.round(b.c / 100);
+        g.strokeStyle = pass ? col(near, 78, 0.95) : col(near, 62, 0.14);
+        g.lineWidth = (pass ? 2.2 : 10) * DPR * (ZS / ((Z1 + Zb) / 2));
+        g.beginPath(); g.moveTo(sx(a.e, Z1), sy(Z1)); g.lineTo(sx(b.e, Zb), sy(Zb)); g.stroke();
+      }
+    }
+    const last = this.hist[this.hist.length - 1];
+    if (last && last.v) {
+      const near = Math.round(last.c / 100), x = sx(last.e, ZS), y = sy(ZS);
+      fx.star(x, y, near, 1.3); fx.head(x, y, near);
+      if (!inp.hold) {
+        fx.emit(x, y, near, { n: 2, spread: 45, vy: H * 0.25 });
+        if (Math.random() < 0.1) fx.puff(x, y, near);
+      }
+    }
+  }
+};
+
+// Recall-mode "listening" orb: shows liveness and loudness, never pitch.
+let orbT = 0;
+function orb(inp, dt, noClear) {
+  orbT += dt;
+  const cx = W / 2, cy = H / 2 + H * 0.04, base = Math.min(W, H) * 0.12;
+  const lv = clamp(Math.sqrt(inp.rms) * 3, 0, 1);
+  g.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 3; i++) {
+    const ph = (orbT * 0.5 + i / 3) % 1;
+    g.strokeStyle = `rgba(215,218,230,${0.25 * (1 - ph)})`; g.lineWidth = 1.5 * DPR;
+    g.beginPath(); g.arc(cx, cy, base * (1 + ph * 1.6), 0, 7); g.stroke();
+  }
+  const r = base * (0.55 + 0.6 * lv);
+  const grd = g.createRadialGradient(cx, cy, 0, cx, cy, r * 1.8);
+  grd.addColorStop(0, `rgba(228,230,240,${0.35 + 0.5 * lv})`); grd.addColorStop(1, 'rgba(228,230,240,0)');
+  g.fillStyle = grd; g.beginPath(); g.arc(cx, cy, r * 1.8, 0, 7); g.fill();
+}
+
+// Absolute tool: neutral ripples only (no colour — colour means scale degree)
+const absVis = {
+  draw(dt, now) {
+    fade(0.18);
+    const cx = W / 2, cy = H / 2 + H * 0.04, t = ctx ? ctx.currentTime : 0;
+    const sounding = T.toneT && t >= T.toneT[0] && t <= T.toneT[1];
+    fx.bg(dt, { energy: sounding ? 0.45 : 0 }, true, null);
+    g.globalCompositeOperation = 'lighter';
+    if (T.burstT && t >= T.burstT[0] && t <= T.burstT[1]) {
+      for (let i = 0; i < 30; i++) { g.fillStyle = `rgba(210,212,225,${Math.random() * 0.4})`; g.fillRect(Math.random() * W, Math.random() * H, 2 * DPR, 2 * DPR); }
+    }
+    if (T.toneT && t >= T.toneT[0] && t <= T.toneT[1] + 0.4) {
+      const el = t - T.toneT[0];
+      for (let i = 0; i < 4; i++) {
+        const ph = ((el * 0.6) + i / 4) % 1;
+        g.strokeStyle = `rgba(215,218,232,${0.35 * (1 - ph)})`; g.lineWidth = 2 * DPR;
+        g.beginPath(); g.arc(cx, cy, Math.min(W, H) * (0.05 + 0.4 * ph), 0, 7); g.stroke();
+      }
+    }
+  }
+};
+
+// ---------- ambient effects: starfield, haze, sparks, smoke, orbits, lock bursts ----------
+// Colour still only ever means scale degree; neutral elements stay cool grey.
+const fx = {
+  stars: [], parts: [], rings: [], t: 0, energy: 0, hx: null, hy: null, hs: 0, lastLock: 0,
+  center: null, well: null, wellNext: null, wellK: 0, close: 0, persist: false,
+  newStar(anywhere) {
+    const a = Math.random() * 2 * Math.PI, r = anywhere ? Math.sqrt(Math.random()) * 0.8 : 0.08 + Math.random() * 0.3;
+    return { x: Math.cos(a) * r, y: Math.sin(a) * r, z: 0.15 + Math.random() * 0.85, ph: Math.random() * 6.3, tw: 0.6 + Math.random() * 2.4 };
+  },
+  // Background: drifting nebula haze + a starfield that streams outward with your loudness ("solar wind")
+  bg(dt, inp, persist, hazeSemi) {
+    this.t += dt;
+    if (!this.stars.length) for (let i = 0; i < 170; i++) this.stars.push(this.newStar(true));
+    const want = inp.energy != null ? inp.energy : (inp.voiced || inp.orb) ? clamp((Math.sqrt(inp.rms || 0) - 0.08) * 2.2, 0, 1) : 0;
+    this.persist = persist;
+    this.energy += (want - this.energy) * Math.min(1, dt * 4);
+    const e = this.energy, cx = this.center ? this.center.x : W / 2, cy = this.center ? this.center.y : H * 0.56, span = Math.max(W, H) * 0.75;
+    // gravity well: stars are pulled (lensed) toward the target, harder the closer you are
+    const well = this.well, K = well ? this.wellK : 0, R0 = Math.min(W, H) * 0.22;
+    const lens = (px, py) => {
+      if (K < 0.01) return [px, py];
+      const dx = well.x - px, dy = well.y - py, pull = (0.6 * K * R0 * R0) / (dx * dx + dy * dy + R0 * R0);
+      return [px + dx * pull, py + dy * pull];
+    };
+    g.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 3; i++) {
+      const hx = cx + Math.cos(this.t * 0.05 + i * 2.1) * W * 0.22, hy = cy + Math.sin(this.t * 0.07 + i * 1.7) * H * 0.18;
+      const r = Math.min(W, H) * (0.42 + 0.08 * Math.sin(this.t * 0.11 + i));
+      const a = (0.03 + 0.07 * e) * (persist ? 0.22 : 1);
+      const c0 = hazeSemi == null ? `rgba(150,155,175,${a * 0.7})` : col(hazeSemi, 48 + i * 6, a);
+      const grd = g.createRadialGradient(hx, hy, 0, hx, hy, r);
+      grd.addColorStop(0, c0); grd.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = grd; g.fillRect(hx - r, hy - r, 2 * r, 2 * r);
+    }
+    const speed = 0.012 + 0.4 * e * e;
+    for (const st of this.stars) {
+      const k = (3 * speed * dt) / st.z;
+      st.x += st.x * k + 0.004 * dt; st.y += st.y * k - 0.002 * dt;
+      if (Math.abs(st.x) > 0.85 || Math.abs(st.y) > 0.85) Object.assign(st, this.newStar(false));
+      const [px, py] = lens(cx + st.x * span, cy + st.y * span), near = 1 - st.z, d0 = Math.hypot(st.x, st.y);
+      const a = (0.55 + 0.45 * Math.sin(this.t * st.tw + st.ph)) * (0.12 + 0.55 * near) * (persist ? 0.55 : 1) * clamp(d0 * 4, 0, 1);
+      if (e > 0.2) {                                         // warp streaks
+        const len = e * e * 30 * DPR * (0.3 + near), d = d0 || 1;
+        g.strokeStyle = `rgba(222,226,240,${a})`; g.lineWidth = (0.5 + 1.2 * near) * DPR;
+        const [tx, ty] = lens(cx + st.x * span - (st.x / d) * len, cy + st.y * span - (st.y / d) * len);
+        g.beginPath(); g.moveTo(px, py); g.lineTo(tx, ty); g.stroke();
+      } else {
+        const sz = (0.5 + 1.5 * near) * DPR;
+        g.fillStyle = `rgba(222,226,240,${a})`; g.fillRect(px - sz / 2, py - sz / 2, sz, sz);
+      }
+    }
+  },
+  emit(x, y, semi, o = {}) {
+    const n = o.n || 1;
+    for (let i = 0; i < n && this.parts.length < 500; i++) {
+      const sp = (o.spread || 40) * DPR, a = Math.random() * 2 * Math.PI, v = Math.random() * sp;
+      this.parts.push({ x, y, vx: (o.vx || 0) + Math.cos(a) * v, vy: (o.vy || 0) + Math.sin(a) * v, life: 1,
+        decay: o.decay || 0.7 + Math.random() * 0.9, semi, size: o.size || 0.8 + Math.random() * 1.6, smoke: !!o.smoke });
+    }
+  },
+  puff(x, y, semi, vx = 0) { this.emit(x, y, semi, { smoke: true, size: 5 + Math.random() * 6, spread: 18, decay: 0.35 + Math.random() * 0.3, vx }); },
+  burst(x, y, semi) {
+    this.emit(x, y, semi, { n: 36, spread: 520, decay: 2.2 });   // short, fast flash (~0.45 s)
+    for (let i = 0; i < 3; i++) this.puff(x, y, semi);
+    this.rings.push({ x, y, semi, r: 4 * DPR, life: 1 });
+  },
+  head(x, y, semi) { this.hx = x; this.hy = y; this.hs = semi; },
+  // four-point twinkle star (bright core + cross flare)
+  star(x, y, semi, scale = 1) {
+    const r = 9 * DPR * scale, tw = 0.75 + 0.25 * Math.sin(this.t * 9);
+    g.globalCompositeOperation = 'lighter';
+    const grd = g.createRadialGradient(x, y, 0, x, y, r * 2.4);
+    grd.addColorStop(0, col(semi, 90, 0.95)); grd.addColorStop(0.25, col(semi, 72, 0.45)); grd.addColorStop(1, col(semi, 60, 0));
+    g.fillStyle = grd; g.beginPath(); g.arc(x, y, r * 2.4, 0, 7); g.fill();
+    g.strokeStyle = col(semi, 88, 0.55 * tw); g.lineWidth = 1.2 * DPR;
+    g.beginPath(); g.moveTo(x - r * 2.6 * tw, y); g.lineTo(x + r * 2.6 * tw, y); g.moveTo(x, y - r * 2.6 * tw); g.lineTo(x, y + r * 2.6 * tw); g.stroke();
+  },
+  // small satellites on tilted elliptical orbits
+  moons(x, y, semi, n, rad, speed) {
+    g.globalCompositeOperation = 'lighter';
+    g.strokeStyle = col(semi, 70, 0.12); g.lineWidth = 1 * DPR;
+    g.beginPath(); g.ellipse(x, y, rad, rad * 0.45, -0.35, 0, 7); g.stroke();
+    for (let i = 0; i < n; i++) {
+      const a = this.t * speed + (i * 2 * Math.PI) / n, c = Math.cos(-0.35), s = Math.sin(-0.35);
+      const ox = Math.cos(a) * rad, oy = Math.sin(a) * rad * 0.45;
+      const mx = x + ox * c - oy * s, my = y + ox * s + oy * c, front = Math.sin(a) > 0;
+      g.fillStyle = col(semi, 86, front ? 0.95 : 0.4);
+      g.beginPath(); g.arc(mx, my, (front ? 2.4 : 1.6) * DPR, 0, 7); g.fill();
+    }
+  },
+  // accretion swirl marking the gravity well
+  swirl(w, semi, K) {
+    g.globalCompositeOperation = 'lighter';
+    const core = g.createRadialGradient(w.x, w.y, 0, w.x, w.y, 30 * DPR);
+    core.addColorStop(0, col(semi, 70, 0.25 * K)); core.addColorStop(1, col(semi, 60, 0));
+    g.fillStyle = core; g.beginPath(); g.arc(w.x, w.y, 30 * DPR, 0, 7); g.fill();
+    for (let i = 0; i < 3; i++) {
+      const r = (16 + i * 11) * DPR, a0 = this.t * (1.8 - i * 0.45) + i * 2;
+      g.strokeStyle = col(semi, 74, (0.35 - i * 0.08) * K); g.lineWidth = (1.6 - i * 0.3) * DPR;
+      g.beginPath(); g.ellipse(w.x, w.y, r, r * 0.42, -0.35, a0, a0 + 1.7); g.stroke();
+    }
+  },
+  fg(dt) {
+    g.globalCompositeOperation = 'lighter';
+    const wx = Math.sin(this.t * 0.13) * 16 * DPR, wy = -12 * DPR;   // gentle wind; smoke rises
+    this.parts = this.parts.filter(p => (p.life -= dt * p.decay) > 0);
+    for (const p of this.parts) {
+      const m = p.smoke ? 1.6 : 0.6;
+      p.vx += wx * dt * m; p.vy += wy * dt * m;
+      p.vx *= 1 - 1.1 * dt; p.vy *= 1 - 1.1 * dt;
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      if (p.smoke) {
+        const r = p.size * DPR * (1 + (1 - p.life) * 3.5);
+        const grd = g.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+        grd.addColorStop(0, col(p.semi, 56, 0.09 * p.life)); grd.addColorStop(1, col(p.semi, 50, 0));
+        g.fillStyle = grd; g.beginPath(); g.arc(p.x, p.y, r, 0, 7); g.fill();
+      } else {
+        const tw = 0.55 + 0.45 * Math.sin(this.t * 22 + p.x * 0.05);
+        g.fillStyle = col(p.semi, 82, p.life * 0.95 * tw);
+        g.beginPath(); g.arc(p.x, p.y, (p.size * p.life + 0.35) * DPR, 0, 7); g.fill();
+      }
+    }
+    this.rings = this.rings.filter(r => (r.life -= dt * 3) > 0);
+    for (const r of this.rings) {
+      r.r += 520 * DPR * dt * r.life;
+      g.strokeStyle = col(r.semi, 76, (this.persist ? 0.18 : 0.45) * r.life); g.lineWidth = (1 + 2 * r.life) * DPR;
+      g.beginPath(); g.arc(r.x, r.y, r.r, 0, 7); g.stroke();
+    }
+  }
+};
+// haze takes the colour of what you're singing, else the context/target colour, else neutral
+function hazeSemiOf(inp) {
+  if (inp.voiced) return mod(Math.round(inp.fc / 100), 12);
+  if (inp.flash) return inp.flash.semis[0];
+  if (inp.showTarget) return inp.semi;
+  return null;
+}
+
+function draw(dt, now) {
+  if (!W) resize();
+  fx.hx = null;
+  if (S.ex === 'abs') { fx.well = null; absVis.draw(dt, now); fx.fg(dt); return; }
+  const inp = currentInput(now);
+  // closeness to the target (0..1) drives the gravity well
+  const want = inp.voiced && inp.showTarget ? Math.exp(-(((inp.fc - inp.tc) / 120) ** 2)) : 0;
+  fx.close += (want - fx.close) * Math.min(1, dt * 3);
+  fx.well = fx.wellNext; fx.wellNext = null;
+  fx.wellK = inp.showTarget && !inp.orb ? 0.2 + 0.8 * fx.close : 0;
+  if (S.visual === 'liss') lissVis.draw(dt, inp);
+  else if (S.visual === 'trace') traceVis.draw(dt, inp);
+  else if (S.visual === 'warp') warpVis.draw(dt, inp);
+  else clockVis.draw(dt, inp, S.visual === 'clock7' && S.prompt !== 'root');
+  if (fx.well && fx.well.swirl && fx.wellK > 0.05) fx.swirl(fx.well, inp.semi, fx.wellK);
+  if (T.lockFlash && T.lockFlash !== fx.lastLock && fx.hx != null) { fx.lastLock = T.lockFlash; fx.burst(fx.hx, fx.hy, fx.hs); }
+  fx.fg(dt);
+}
+
+// ---------- cockpit HUD + console data bar ----------
+const VIEWNAME = { liss: 'LISSAJOUS', clock12: 'CHROMA-12', clock7: 'DIATONIC-7', trace: 'TRACE', warp: 'WARP' };
+const hud = { t0: performance.now(), last: 0, segs: [] };
+function hudInit() {
+  const m = $('hMeter');
+  for (let i = 0; i < 12; i++) { const el = document.createElement('i'); if (i >= 8) el.dataset.hi = 1; if (i >= 11) el.dataset.pk = 1; m.appendChild(el); hud.segs.push(el); }
+}
+function hudUpdate(now) {
+  // level meter every frame (cheap), text ~8×/s
+  const lv = analyser && needDetect() ? clamp((Math.sqrt(liveFrame.rms || 0) - 0.03) * 4.2, 0, 1) : 0;
+  const n = Math.round(lv * 12);
+  hud.segs.forEach((el, i) => { el.className = i < n ? ('on' + (el.dataset.pk ? ' pk' : el.dataset.hi ? ' hi' : '')) : ''; });
+  if (now - hud.last < 0.12) return; hud.last = now;
+  const sec = Math.floor((performance.now() - hud.t0) / 1000);
+  $('hTime').textContent = `T+${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
+  const sing = S.ex === 'sing', p = T.phase;
+  $('hView').textContent = sing ? VIEWNAME[(S.prompt === 'root' && S.visual === 'clock7') ? 'clock12' : S.visual] : 'TONE ID';
+  const hidden = sing && S.prompt === 'root' && S.mode === 'recall' && ['context', 'listen', 'missed'].includes(p);
+  let st = 'STBY', dot = '';
+  if (sing) {
+    st = { idle: 'STBY', context: 'KEY', listen: S.mode === 'recall' ? 'REC' : 'LIVE', success: 'LOCK', replay: 'REPLAY', result: 'RESULT', missed: 'MISS', calib: 'CAL' }[p] || p;
+    dot = p === 'listen' ? (S.mode === 'recall' ? 'rec' : 'live') : (p === 'success' || (p === 'result' && T.result && T.result.ok)) ? 'lock' : '';
+  } else {
+    st = { idle: 'STBY', burst: 'MASK', answer: 'PROBE', reveal: 'REVEAL' }[p] || p;
+    dot = p === 'answer' ? 'live' : '';
+  }
+  $('dState').innerHTML = `<i class="dot ${dot}"></i>${st}`;
+  if (!sing) {
+    $('dKey').innerHTML = `TIMBRE <b>${p === 'reveal' ? T.absTimbre : '···'}</b>`;
+    $('dTgt').innerHTML = `HIT <b>${tally.right}/${tally.n}</b>`;
+    $('dDev').innerHTML = `±1 <b>${tally.near}/${tally.n}</b>`;
+    $('dExtra').innerHTML = '';
+    return;
+  }
+  const tn = NOTE[mod(T.tonic, 12)];
+  $('dKey').innerHTML = S.prompt === 'root'
+    ? `TONIC <b>${hidden || p === 'idle' ? '··' : noteName(T.tonic)}</b>`
+    : `KEY <b>${p === 'idle' ? '··' : tn + (S.scale === 'minor' ? ' MIN' : ' MAJ')}</b>`;
+  $('dTgt').innerHTML = `TARGET <b>${p === 'idle' || hidden ? '··' : (S.prompt === 'root' ? tn : degLabel(T.semi))}</b>`;
+  let dev = '···';
+  if (p === 'listen' && S.mode === 'practice' && liveFrame.voiced && T.frames.length) {
+    const f = T.frames[T.frames.length - 1]; if (f.voiced) dev = fmtC(f.fc - T.tc);
+  } else if ((p === 'success' || p === 'result') && T.result) dev = fmtC(T.result.err);
+  $('dDev').innerHTML = `DEV <b>${dev}</b>`;
+  $('dExtra').innerHTML = p === 'listen' && S.mode === 'practice' && liveFrame.voiced ? `<b>${mtof(liveFrame.midi).toFixed(1)}</b> HZ` : (S.mode === 'recall' ? 'BLIND' : 'GUIDED');
+}
+
+// ---------- main loop ----------
+let lastTs = 0, fps = 60, liveFrame = { voiced: false, rms: 0 };
+const needDetect = () => S.debug || T.phase === 'listen' || T.phase === 'calib';
+function loop(ts) {
+  const dt = Math.min(0.05, lastTs ? (ts - lastTs) / 1000 : 0.016); lastTs = ts;
+  fps = fps * 0.95 + (1 / Math.max(dt, 0.001)) * 0.05;
+  const now = ts / 1000;
+  if (analyser && needDetect()) {
+    analyser.getFloatTimeDomainData(timeBuf);
+    const r = DSP.yin(timeBuf, ctx.sampleRate, yinBuf);
+    liveFrame = tracker.push(r, now, S.gate);
+    if (T.phase === 'listen') onListenFrame(liveFrame, performance.now() / 1000);
+    if (T.phase === 'calib') {
+      if (liveFrame.voiced && liveFrame.settled) T.calib.push(liveFrame.midi);
+      const left = Math.max(0, 6 - (now - T.calibStart)).toFixed(1);
+      setStatus(liveFrame.voiced ? `${noteName(liveFrame.midi)} · ${left}s` : `${left}s`);
+    }
+    if (S.debug) readout.textContent = liveFrame.voiced
+      ? `${mtof(liveFrame.midi).toFixed(1)} Hz · ${noteName(liveFrame.midi)} ${fmtC((liveFrame.midi - Math.round(liveFrame.midi)) * 100)} · conf ${r.conf.toFixed(2)} · rms ${r.rms.toFixed(3)} · ${Math.round(fps)} fps`
+      : `— · rms ${r.rms.toFixed(3)} · ${Math.round(fps)} fps`;
+  } else if (!S.debug) readout.textContent = '';
+  if (T.phase === 'replay') stepReplay(performance.now() / 1000);
+  draw(dt, performance.now() / 1000);
+  hudUpdate(performance.now() / 1000);
+  requestAnimationFrame(loop);
+}
+
+// ---------- UI ----------
+const $ = id => document.getElementById(id);
+const readout = $('readout');
+// Root prompts show the tonic's note name (the function is always 1); degree prompts show the degree.
+const targetLabel = () => S.prompt === 'root' ? NOTE[mod(T.tonic, 12)] : degLabel(T.semi);
+function setPrompt(big, sub, semi) {
+  $('pBig').textContent = big || ''; $('pSub').textContent = sub || '';
+  // Recall + Root: keep the note name blurred until the attempt is scored
+  $('pBig').classList.toggle('blur', S.ex === 'sing' && S.prompt === 'root' && S.mode === 'recall' &&
+    (T.phase === 'context' || T.phase === 'listen' || T.phase === 'missed'));
+  $('pBig').style.color = semi != null ? col(semi, 70) : 'var(--text)';
+}
+function setStatus(html) { $('status').innerHTML = html || ''; }
+function setActions(list) {
+  const el = $('actions'); el.innerHTML = '';
+  list.forEach(a => { const b = document.createElement('button'); b.textContent = a.label; if (a.primary) b.className = 'primary'; b.onclick = a.fn; el.appendChild(b); });
+}
+function render() {
+  const p = T.phase, sing = S.ex === 'sing';
+  $('singCtl').hidden = !sing; $('visPick').hidden = !sing; $('grid').hidden = sing;
+  if (p === 'calib') return setActions([{ label: 'Cancel', fn: () => { clearTimers(); T.phase = 'idle'; setPrompt('', ''); setStatus(''); render(); } }]);
+  if (sing) {
+    const skip = { label: 'Skip', fn: newSingTrial };
+    const key = { label: S.prompt === 'root' ? 'Replay' : 'Replay key', fn: runContext };
+    if (p === 'idle') setActions([{ label: 'Begin ▶', primary: true, fn: newSingTrial }]);
+    else if (p === 'context') setActions([skip]);
+    else if (p === 'listen') setActions([key, skip]);
+    else if (p === 'success') setActions([{ label: 'Next ▶', primary: true, fn: newSingTrial }]);
+    else if (p === 'replay') setActions([{ label: 'Next ▶', primary: true, fn: newSingTrial }]);
+    else if (p === 'result') setActions([{ label: 'Compare', fn: compare }, { label: 'Replay', fn: replayAgain }, { label: 'Next ▶', primary: true, fn: newSingTrial }]);
+    else if (p === 'missed') setActions([{ label: 'Try again', fn: runContext }, { label: 'Next ▶', primary: true, fn: newSingTrial }]);
+  } else {
+    if (p === 'idle') setActions([{ label: 'Begin ▶', primary: true, fn: newAbsTrial }]);
+    else if (p === 'answer') setActions([{ label: 'Replay tone', fn: () => { killAudio(); playAbsTone(ctx.currentTime + 0.05); } }]);
+    else if (p === 'reveal') setActions([{ label: 'Replay tone', fn: () => { killAudio(); playAbsTone(ctx.currentTime + 0.05); } }, { label: 'Next ▶', primary: true, fn: newAbsTrial }]);
+    else setActions([]);
+    [...$('grid').children].forEach((b, i) => {
+      b.disabled = p !== 'answer' && p !== 'reveal';
+      b.classList.toggle('right', p === 'reveal' && i === mod(T.absMidi, 12));
+      b.classList.toggle('wrong', p === 'reveal' && i === T.absPick && i !== mod(T.absMidi, 12));
+    });
+    if (tally.n && p === 'reveal') $('status').innerHTML += ` <span class="m">· ${tally.right}/${tally.n}</span>`;
+  }
+}
+function resetPhase() {
+  clearTimers(); T.phase = 'idle'; T.result = null; T.replay = null; T.flashes = [];
+  setPrompt('', ''); setStatus(''); clockVis.trail = []; traceVis.hist = [];
+  render();
+}
+
+function bindSeg(id, key, onChange) {
+  $(id).querySelectorAll('button').forEach(b => b.onclick = () => { S[key] = b.dataset.v; save(); syncUI(); onChange && onChange(); });
+}
+function syncUI() {
+  [['exSeg','ex'],['modeSeg','mode'],['promptSeg','prompt'],['visPick','visual'],['scaleSeg','scale'],['rangeSeg','range'],['hueSeg','hue'],['fontSeg','font'],['numSeg','numerals']].forEach(([id, k]) =>
+    $(id).querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === S[k])));
+  $('keySel').value = S.key;
+  const chips = $('poolChips'); chips.innerHTML = '';
+  scaleSemis().forEach((s, i) => {
+    const b = document.createElement('button'), d = i + 1, on = S.pool.includes(d);
+    b.textContent = degLabel(s); b.className = on ? 'on' : '';
+    if (on) b.style.background = col(s, 66);
+    b.onclick = () => { S.pool = on ? S.pool.filter(x => x !== d) : [...S.pool, d].sort(); if (!S.pool.length) S.pool = [1]; save(); syncUI(); };
+    chips.appendChild(b);
+  });
+  $('fontHint').textContent = FONTS[S.font].label;
+  const [lo, hi] = rangeLH(); $('rangeHint').textContent = `${noteName(lo)} – ${noteName(hi)}`;
+  $('extraChk').checked = !!S.extraViews; $('droneChk').checked = S.drone; $('autoChk').checked = S.auto; $('debugChk').checked = S.debug;
+  $('gateRange').value = S.gate; $('gateVal').textContent = (+S.gate).toFixed(3);
+}
+// Which view buttons are shown: Chroma-12 and Trace only when enabled in Settings;
+// no Diatonic-7 in Root mode. A hidden current view falls back to Lissajous.
+function rootVisualFix() {
+  const vis = { liss: true, warp: true, clock7: S.prompt !== 'root', clock12: S.extraViews, trace: S.extraViews };
+  Object.keys(vis).forEach(v => { $('visPick').querySelector(`[data-v="${v}"]`).hidden = !vis[v]; });
+  if (!vis[S.visual]) { S.visual = (S.visual === 'clock7' && vis.clock12) ? 'clock12' : 'liss'; save(); }
+  syncUI();
+}
+function openSheet() { $('sheet').hidden = false; }
+function closeSheet() { $('sheet').hidden = true; }
+
+function initUI() {
+  $('keySel').innerHTML = '<option value="random">Random each trial</option>' + NOTE.map((n, i) => `<option value="${i}">${n}</option>`).join('');
+  $('grid').innerHTML = NOTE_BTN.map((n, i) => `<button data-pc="${i}">${n}</button>`).join('');
+  $('grid').querySelectorAll('button').forEach(b => b.onclick = () => answerAbs(+b.dataset.pc));
+  bindSeg('exSeg', 'ex', resetPhase);
+  bindSeg('modeSeg', 'mode', resetPhase);
+  bindSeg('promptSeg', 'prompt', () => { rootVisualFix(); resetPhase(); });
+  bindSeg('visPick', 'visual', () => { clockVis.trail = []; traceVis.hist = []; warpVis.hist = []; });
+  bindSeg('scaleSeg', 'scale', resetPhase);
+  bindSeg('rangeSeg', 'range');
+  bindSeg('fontSeg', 'font', applyFont);
+  bindSeg('numSeg', 'numerals', () => { if (T.phase !== 'idle' && S.ex === 'sing') setPrompt(targetLabel(), $('pSub').textContent, T.semi); });
+  bindSeg('hueSeg', 'hue', () => T.semi != null && T.phase !== 'idle' && setPrompt($('pBig').textContent, $('pSub').textContent, T.semi));
+  $('keySel').onchange = e => { S.key = e.target.value; save(); };
+  $('droneChk').onchange = e => { S.drone = e.target.checked; save(); };
+  $('extraChk').onchange = e => { S.extraViews = e.target.checked; save(); rootVisualFix(); };
+  $('autoChk').onchange = e => { S.auto = e.target.checked; save(); };
+  $('debugChk').onchange = e => { S.debug = e.target.checked; save(); };
+  $('gateRange').oninput = e => { S.gate = +e.target.value; $('gateVal').textContent = S.gate.toFixed(3); save(); };
+  $('gearBtn').onclick = openSheet; $('closeSheet').onclick = closeSheet;
+  $('sheet').onclick = e => { if (e.target.id === 'sheet') closeSheet(); };
+  $('calBtn').onclick = () => ctx && startCalib();
+  $('startBtn').onclick = async () => {
+    $('introErr').textContent = '';
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('This browser blocks the microphone here. Open the page over https:// (or http://localhost).');
+      await startAudio();
+      $('intro').hidden = true; resize(); render();
+    } catch (e) { $('introErr').textContent = (e && e.message) || String(e); }
+  };
+  hudInit(); syncUI(); rootVisualFix(); render();
+  requestAnimationFrame(loop);
+}
+initUI();
+</script>
+</body>
+</html>
